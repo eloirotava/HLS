@@ -1,4 +1,4 @@
-package com.seunome.hlsstreamer
+package com.eloirotava.hlsstreamer
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -16,7 +16,7 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.FFmpegKit // O pacote interno geralmente mantem o nome original
 import com.arthenica.ffmpegkit.FFmpegKitConfig
 import java.io.FileOutputStream
 
@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
     // COLOQUE SUA CHAVE AQUI! Mantenha o formato da URL.
     private val YOUTUBE_URL = "https://a.upload.youtube.com/http_upload_hls?cid=0yhk-4u11-wexp-z4ak-c8pv&copy=0&file="
     
-    // Resolução (Para economizar bateria e CPU no teste, use 720p)
+    // Resolução (720p é um bom equilíbrio para teste)
     private val WIDTH = 1280
     private val HEIGHT = 720
     private val FPS = 30
@@ -76,18 +76,19 @@ class MainActivity : AppCompatActivity() {
         pipePath = FFmpegKitConfig.registerNewFFmpegPipe(this)
         
         // 2. Inicia FFmpeg (Comando otimizado para H.265 via Hardware)
-        // Nota: O input é rawvideo NV21 vindo do Pipe
         val cmd = "-f rawvideo -vcodec rawvideo -pix_fmt nv21 -s ${WIDTH}x${HEIGHT} -r $FPS " +
                 "-i $pipePath " +
                 "-c:v hevc_mediacodec -b:v 2M -g 60 -keyint_min 60 " + // Hardware Encoding H.265
-                "-c:a aac -ar 44100 -b:a 128k " + // Audio mudo (ou adicione input de mic)
+                "-c:a aac -ar 44100 -b:a 128k " + 
                 "-f hls -hls_time 2 -hls_list_size 4 -http_persistent 1 -method PUT $YOUTUBE_URL"
 
         Log.d("HLS", "Iniciando FFmpeg: $cmd")
         
         FFmpegKit.executeAsync(cmd) { session ->
             Log.d("HLS", "FFmpeg terminou com código: ${session.returnCode}")
-            runOnUiThread { stopStream() }
+            runOnUiThread { 
+                if (isStreaming) stopStream() // Só para se morrer sozinho
+            }
         }
 
         // 3. Abre a Câmera
@@ -96,7 +97,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopStream() {
         isStreaming = false
-        btnStart.text = "INICIAR STREAM HLS"
+        runOnUiThread { btnStart.text = "INICIAR STREAM HLS" }
         
         try { captureSession?.stopRepeating(); captureSession?.abortCaptures() } catch (e: Exception){}
         captureSession?.close()
@@ -121,7 +122,6 @@ class MainActivity : AppCompatActivity() {
                 val image = reader.acquireLatestImage()
                 if (image != null) {
                     if (isStreaming && pipePath != null) {
-                        // AQUI É A MÁGICA: Pega os bytes da imagem e joga no Pipe
                         saveYUVToPipe(image)
                     }
                     image.close()
@@ -129,7 +129,8 @@ class MainActivity : AppCompatActivity() {
             }, backgroundHandler)
 
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                manager.openCamera(object : CameraDevice.StateCallback() {
+                // CORREÇÃO AQUI: Passando cameraId e garantindo o Handler
+                manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                     override fun onOpened(camera: CameraDevice) {
                         cameraDevice = camera
                         createCameraPreview()
@@ -148,14 +149,12 @@ class MainActivity : AppCompatActivity() {
             val previewSurface = Surface(texture)
             val readerSurface = imageReader!!.surface
 
-            // Cria sessão enviando para a tela (preview) e para o codificador (reader)
             cameraDevice?.createCaptureSession(listOf(previewSurface, readerSurface), object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
                     val request = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                     request.addTarget(previewSurface)
                     request.addTarget(readerSurface)
-                    // Otimização para vídeo
                     request.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
                     session.setRepeatingRequest(request.build(), null, backgroundHandler)
                 }
@@ -164,15 +163,12 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    // Converte YUV_420_888 para NV21 e escreve no Pipe
     private fun saveYUVToPipe(image: android.media.Image) {
         try {
             if (pipeStream == null) {
                 pipeStream = FileOutputStream(pipePath)
             }
             
-            // Conversão simplificada (Apenas copia Y e UV intercalado)
-            // Isso é pesado para fazer em Java/Kotlin, mas funcional para MVP
             val yBuffer = image.planes[0].buffer
             val uBuffer = image.planes[1].buffer
             val vBuffer = image.planes[2].buffer
@@ -183,24 +179,21 @@ class MainActivity : AppCompatActivity() {
 
             val nv21 = ByteArray(ySize + uSize + vSize)
 
-            // Copia Y
             yBuffer.get(nv21, 0, ySize)
-            
-            // Copia UV (Ajuste bruto para NV21)
-            // Nota: Para produção real, usar RenderScript ou OpenGL é obrigatório por performance
-            // Aqui estamos apenas despejando os bytes esperando que o driver de câmera
-            // entregue num formato "amigável". Se a cor ficar estranha, é aqui o problema.
             vBuffer.get(nv21, ySize, vSize) 
             
             pipeStream?.write(nv21)
         } catch (e: Exception) {
-            Log.e("HLS", "Erro ao escrever no pipe: ${e.message}")
+            // Log.e("HLS", "Erro pipe: ${e.message}")
         }
     }
 
     private fun startBackgroundThread() {
-        backgroundThread = HandlerThread("CameraBackground").also { it.start() }
-        backgroundHandler = Handler(backgroundThread?.looper)
+        val thread = HandlerThread("CameraBackground")
+        thread.start()
+        backgroundThread = thread
+        // CORREÇÃO AQUI: Usando o looper do objeto thread criado localmente (seguro)
+        backgroundHandler = Handler(thread.looper)
     }
 
     private fun stopBackgroundThread() {
