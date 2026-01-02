@@ -2,9 +2,8 @@ package com.eloirotava.hlsstreamer
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.ImageFormat
+import android.media.*
 import android.hardware.camera2.*
-import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -17,16 +16,29 @@ import androidx.core.app.ActivityCompat
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.FFmpegKitConfig
 import java.io.FileOutputStream
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    // --- CONFIGURAÇÃO ---
-    // Mantemos sua URL base, mas garantimos que termina com 'file='
-    private val YOUTUBE_BASE_URL = "https://a.upload.youtube.com/http_upload_hls?cid=5jj0-eeq5-5a66-wwws-3rkk&copy=0&file="
+    // =========================================================================
+    // CONFIGURAÇÃO
+    // =========================================================================
+    // Cole APENAS a chave HLS aqui (o código depois do 'cid=')
+    private val YOUTUBE_CID = "5jj0-eeq5-5a66-wwws-3rkk" 
     
+    // Configurações de Vídeo
     private val WIDTH = 1280
     private val HEIGHT = 720
     private val FPS = 30
+    private val VIDEO_BITRATE = 2000000 // 2Mbps
+
+    // Configurações de Áudio
+    private val SAMPLE_RATE = 44100
+    private val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
+    private val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+    private val AUDIO_BITRATE = "128k"
+
+    // =========================================================================
 
     private lateinit var btnStart: Button
     private lateinit var textureView: TextureView
@@ -34,19 +46,28 @@ class MainActivity : AppCompatActivity() {
     
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
-    private var imageReader: ImageReader? = null
     
-    private var pipePath: String? = null
-    private var pipeStream: FileOutputStream? = null
+    // Encoder de Vídeo (Hardware)
+    private var videoCodec: MediaCodec? = null
+    private var inputSurface: Surface? = null
+    
+    // Gravador de Áudio
+    private var audioRecord: AudioRecord? = null
+    
+    // Pipes e Controle
+    private var videoPipePath: String? = null
+    private var videoPipeStream: FileOutputStream? = null
+    private var audioPipePath: String? = null
+    private var audioPipeStream: FileOutputStream? = null
+    
     private var isStreaming = false
-
     private var backgroundThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        
         textureView = findViewById(R.id.textureView)
         btnStart = findViewById(R.id.btnStart)
         tvLog = findViewById(R.id.tvLog)
@@ -59,62 +80,166 @@ class MainActivity : AppCompatActivity() {
             if (isStreaming) stopStream() else startStream()
         }
         
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        // Solicita permissões (Câmera e Áudio)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
         }
     }
 
     private fun startStream() {
+        if (YOUTUBE_CID.contains("COLE-SUA")) {
+            logToScreen("ERRO: Configure o CID na linha 27!")
+            return
+        }
+
         startBackgroundThread()
         isStreaming = true
         btnStart.text = "PARAR STREAM"
-        tvLog.text = "Iniciando...\n"
+        tvLog.text = "Iniciando A/V Stream...\n"
 
-        // 1. Cria o Pipe
-        pipePath = FFmpegKitConfig.registerNewFFmpegPipe(this)
-        logToScreen("Pipe: $pipePath")
+        // 1. Cria Pipes (Um para vídeo, um para áudio)
+        videoPipePath = FFmpegKitConfig.registerNewFFmpegPipe(this)
+        videoPipeStream = FileOutputStream(videoPipePath)
         
-        // 2. Prepara as URLs explícitas para o YouTube não rejeitar
-        // O %d é onde o FFmpeg vai colocar o número 0, 1, 2...
-        val segmentUrl = "${YOUTUBE_BASE_URL}seq%d.ts" 
-        val playlistUrl = "${YOUTUBE_BASE_URL}master.m3u8"
+        audioPipePath = FFmpegKitConfig.registerNewFFmpegPipe(this)
+        audioPipeStream = FileOutputStream(audioPipePath)
 
-        // 3. Comando Ajustado
-        // Mudanças: 
-        // - h264_mediacodec (Hardware) em vez de libx264
-        // - hls_time 2 (Pedaços de 2 segundos para stream rápido)
-        // - hls_segment_filename (Usa a URL correta para os pedaços)
-        val cmd = "-f rawvideo -vcodec rawvideo -pix_fmt nv21 -s ${WIDTH}x${HEIGHT} -r $FPS " +
-                "-i $pipePath " + 
-                "-c:v h264_mediacodec -b:v 2000k -g 30 -keyint_min 30 -sc_threshold 0 " +
-                "-c:a aac -b:a 128k -ar 44100 " + 
+        // 2. Prepara URLs
+        val cleanCid = YOUTUBE_CID.trim()
+        val baseUrl = "http://a.upload.youtube.com/http_upload_hls?cid=$cleanCid&copy=0&file="
+        val segmentUrl = "${baseUrl}seq%d.ts"
+        val playlistUrl = "${baseUrl}master.m3u8"
+
+        // 3. Inicia Captura (Hardware Video + Mic Audio)
+        startVideoCodec()
+        startAudioCapture()
+
+        // 4. Inicia FFmpeg
+        // Explicação do comando:
+        // -f h264 -i videoPipe: Lê vídeo bruto H.264 do hardware
+        // -f s16le -ar 44100 -ac 1 -i audioPipe: Lê áudio bruto PCM do mic
+        // -c:v copy: Não gasta CPU com vídeo (já vem pronto)
+        // -c:a aac: Codifica o áudio para AAC (leve)
+        // -map 0:v -map 1:a: Garante que pega vídeo do input 0 e áudio do input 1
+        val cmd = "-f h264 -i $videoPipePath " + 
+                "-f s16le -ar 44100 -ac 1 -i $audioPipePath " +
+                "-c:v copy " +
+                "-c:a aac -b:a $AUDIO_BITRATE " +
+                "-map 0:v -map 1:a " +
                 "-f hls -hls_time 2 -hls_list_size 4 " +
                 "-method PUT -http_persistent 1 " +
+                "-http_opts tls_verify=0 " + 
                 "-hls_segment_filename \"$segmentUrl\" \"$playlistUrl\""
 
-        logToScreen("Iniciando encoder...")
-        
+        logToScreen("Iniciando FFmpeg...")
         FFmpegKit.executeAsync(cmd) { session ->
             val returnCode = session.returnCode
             runOnUiThread { 
-                logToScreen("Fim: $returnCode")
-                if (!returnCode.isValueSuccess) logToScreen("ERRO! Verifique internet/chave.")
+                logToScreen("FFmpeg Fim: $returnCode")
                 stopStream() 
             }
         }
 
+        // 5. Liga a câmera na Surface
         openCamera()
+    }
+
+    private fun startVideoCodec() {
+        try {
+            val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, WIDTH, HEIGHT)
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+            format.setInteger(MediaFormat.KEY_BIT_RATE, VIDEO_BITRATE)
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, FPS)
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1) // Keyframe a cada 1s
+
+            videoCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            videoCodec?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            inputSurface = videoCodec?.createInputSurface()
+            videoCodec?.start()
+
+            // Thread dedicada para tirar dados do Codec e jogar no Pipe
+            thread(start = true) {
+                val bufferInfo = MediaCodec.BufferInfo()
+                while (isStreaming) {
+                    try {
+                        val codec = videoCodec ?: break
+                        val outputBufferId = codec.dequeueOutputBuffer(bufferInfo, 10000)
+                        
+                        if (outputBufferId >= 0) {
+                            val outputBuffer = codec.getOutputBuffer(outputBufferId)
+                            if (outputBuffer != null) {
+                                val outData = ByteArray(bufferInfo.size)
+                                outputBuffer.get(outData)
+                                videoPipeStream?.write(outData)
+                            }
+                            codec.releaseOutputBuffer(outputBufferId, false)
+                        }
+                    } catch (e: Exception) {
+                        // Ignora erros ao fechar
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            logToScreen("Erro Video Codec: ${e.message}")
+        }
+    }
+
+    private fun startAudioCapture() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            logToScreen("Sem permissão de áudio!")
+            return
+        }
+
+        thread(start = true) {
+            try {
+                val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+                val bufferSize = minBufferSize.coerceAtLeast(4096)
+                
+                audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, bufferSize)
+                audioRecord?.startRecording()
+
+                val buffer = ByteArray(2048) // Buffer pequeno para menor latência
+                while (isStreaming) {
+                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    if (read > 0) {
+                        audioPipeStream?.write(buffer, 0, read)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { logToScreen("Erro Audio: ${e.message}") }
+            }
+        }
     }
 
     private fun stopStream() {
         isStreaming = false
         runOnUiThread { btnStart.text = "INICIAR STREAM" }
         
+        // 1. Para Câmera
         try { captureSession?.stopRepeating(); captureSession?.abortCaptures() } catch (e: Exception){}
         captureSession?.close()
         cameraDevice?.close()
-        imageReader?.close()
         
+        // 2. Para Codec de Vídeo
+        try {
+            videoCodec?.stop()
+            videoCodec?.release()
+        } catch(e: Exception){}
+        videoCodec = null
+        
+        // 3. Para Áudio
+        try {
+            audioRecord?.stop()
+            audioRecord?.release()
+        } catch(e: Exception){}
+        audioRecord = null
+        
+        // 4. Fecha Pipes
+        try { videoPipeStream?.close() } catch(e: Exception){}
+        try { audioPipeStream?.close() } catch(e: Exception){}
+        
+        // 5. Cancela FFmpeg
         FFmpegKit.cancel()
         stopBackgroundThread()
     }
@@ -127,15 +252,6 @@ class MainActivity : AppCompatActivity() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         try {
             val cameraId = manager.cameraIdList[0] 
-            imageReader = ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, 2)
-            imageReader?.setOnImageAvailableListener({ reader ->
-                val image = reader.acquireLatestImage()
-                if (image != null) {
-                    if (isStreaming && pipePath != null) saveYUVToPipe(image)
-                    image.close()
-                }
-            }, backgroundHandler)
-
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                     override fun onOpened(camera: CameraDevice) {
@@ -154,41 +270,24 @@ class MainActivity : AppCompatActivity() {
             val texture = textureView.surfaceTexture!!
             texture.setDefaultBufferSize(WIDTH, HEIGHT)
             val previewSurface = Surface(texture)
-            val readerSurface = imageReader!!.surface
+            
+            // Envia para Tela E para o Encoder (Surface)
+            val targets = mutableListOf(previewSurface)
+            inputSurface?.let { targets.add(it) }
 
-            cameraDevice?.createCaptureSession(listOf(previewSurface, readerSurface), object : CameraCaptureSession.StateCallback() {
+            cameraDevice?.createCaptureSession(targets, object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
                     val request = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
                     request.addTarget(previewSurface)
-                    request.addTarget(readerSurface)
+                    inputSurface?.let { request.addTarget(it) }
+                    
                     request.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
                     session.setRepeatingRequest(request.build(), null, backgroundHandler)
                 }
                 override fun onConfigureFailed(session: CameraCaptureSession) {}
             }, backgroundHandler)
         } catch (e: Exception) { e.printStackTrace() }
-    }
-
-    private fun saveYUVToPipe(image: android.media.Image) {
-        try {
-            if (pipeStream == null) pipeStream = FileOutputStream(pipePath)
-            
-            val yBuffer = image.planes[0].buffer
-            val uBuffer = image.planes[1].buffer
-            val vBuffer = image.planes[2].buffer
-
-            val ySize = yBuffer.remaining()
-            val uSize = uBuffer.remaining()
-            val vSize = vBuffer.remaining()
-
-            val nv21 = ByteArray(ySize + uSize + vSize)
-
-            yBuffer.get(nv21, 0, ySize)
-            vBuffer.get(nv21, ySize, vSize) 
-            
-            pipeStream?.write(nv21)
-        } catch (e: Exception) { }
     }
 
     private fun startBackgroundThread() {

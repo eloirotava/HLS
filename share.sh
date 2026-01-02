@@ -55,7 +55,7 @@ fi
 DOWNLOAD_URL="${ROOT_URL}/${APK_DEST}"
 
 # 8. Mostra o Resultado
-clear
+#clear
 echo "=========================================="
 echo "   📲 SCANNER PARA BAIXAR O APK"
 echo "=========================================="
@@ -67,5 +67,5 @@ echo ""
 echo "=========================================="
 echo "Pressione [ENTER] para parar o servidor..."
 read
-kill $SERVER_PID
+#kill $SERVER_PID
 echo "🛑 Servidor parado."
