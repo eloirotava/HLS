@@ -1,0 +1,24 @@
+{
+  "name": "Android HLS Builder",
+  "image": "mcr.microsoft.com/devcontainers/java:17-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/android:1": {
+      "components": "platform-tools,platforms;android-34,build-tools;34.0.0",
+      "acceptLicense": true
+    },
+    "ghcr.io/devcontainers/features/gradle:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "mathiasfrohlich.Kotlin"
+      ],
+      "settings": {
+        "java.home": "/usr/local/sdkman/candidates/java/current"
+      }
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "sudo chown -R vscode:vscode /opt/android-sdk && echo 'Ambiente Android Pronto!'"
+}
