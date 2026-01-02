@@ -38,6 +38,11 @@ SERVER_PID=$!
 # Dá um tempo para o servidor registrar a porta no sistema do GitHub
 sleep 3
 
+# 6. Agora sim: Libera a porta e pega a URL
+#echo "🔓 Configurando acesso público..."
+#gh codespace ports visibility "$PORT:public" -c "$CODESPACE_NAME"
+# > /dev/null
+
 # 7. Tenta pegar a URL oficial
 ROOT_URL=$(gh codespace ports -c "$CODESPACE_NAME" --json port,browseUrl -q ".[] | select(.port == $PORT) | .browseUrl")
 

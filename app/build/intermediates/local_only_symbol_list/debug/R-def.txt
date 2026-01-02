@@ -2,4 +2,5 @@ R_DEF: Internal format may change without notice
 local
 id btnStart
 id textureView
+id tvLog
 layout activity_main
