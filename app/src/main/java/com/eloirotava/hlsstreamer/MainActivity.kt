@@ -13,16 +13,28 @@ import androidx.core.app.ActivityCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.rtmp.RtmpCamera2
 import com.pedro.library.view.OpenGlView
+import com.pedro.encoder.input.gl.render.filters.CropFilterRender
 
-class MainActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callback {
+class MainActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callback, OnCropChangeListener {
 
     private val RTMP_URL = "rtmp://a.rtmp.youtube.com/live2/14r1-3asd-4ze4-uyhh-4m9f"
 
     private lateinit var openGlView: OpenGlView
+    private lateinit var cropView: DraggableCropView
     private lateinit var btnStart: Button
     private lateinit var tvLog: TextView
 
     private var rtmpCamera2: RtmpCamera2? = null
+    
+    private val cropFilter = CropFilterRender()
+
+    // --- VOLTAMOS PARA 4:3 (A resolução que funcionou) ---
+    private val CAM_W = 1440
+    private val CAM_H = 1080
+
+    // Saída continua 720p (16:9)
+    private val CROP_W = 1280f
+    private val CROP_H = 720f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,70 +42,96 @@ class MainActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callback
         setContentView(R.layout.activity_main)
 
         openGlView = findViewById(R.id.surfaceView)
+        cropView = findViewById(R.id.cropView)
         tvLog = findViewById(R.id.tvLog)
         btnStart = findViewById(R.id.btnStart)
 
-        // 1. Adiciona o Callback para saber quando a tela está pronta
         openGlView.holder.addCallback(this)
+        cropView.listener = this 
 
-        // 2. Inicializa a biblioteca com proteção
-        try {
-            rtmpCamera2 = RtmpCamera2(openGlView, this)
-        } catch (e: Exception) {
-            log("Erro Fatal ao iniciar lib: ${e.message}")
-        }
-
+        rtmpCamera2 = RtmpCamera2(openGlView, this)
+        
         btnStart.setOnClickListener {
-            if (rtmpCamera2?.isStreaming == true) {
-                stopStream()
-            } else {
-                startStream()
-            }
+            if (rtmpCamera2?.isStreaming == true) stopStream() else startStream()
         }
         
         checkPermissions()
     }
 
-    // --- CICLO DE VIDA DA SUPERFÍCIE (O Segredo para não crashar) ---
-    
-    override fun surfaceCreated(holder: SurfaceHolder) {
-        // A tela existe! Agora é seguro ligar a câmera (se tiver permissão)
-        if (hasPermissions()) {
-            startPreviewSafe()
+    override fun onCropChanged(xPercent: Float, yPercent: Float, wPercent: Float, hPercent: Float) {
+        // Mapeia o toque (0..1) para a resolução da câmera (1440x1080)
+        var realX = xPercent * CAM_W
+        var realY = yPercent * CAM_H
+
+        if (realX < 0) realX = 0f
+        if (realX + CROP_W > CAM_W) realX = (CAM_W - CROP_W).toFloat()
+        
+        if (realY < 0) realY = 0f
+        if (realY + CROP_H > CAM_H) realY = (CAM_H - CROP_H).toFloat()
+
+        cropFilter.setCropArea(realX, realY, CROP_W, CROP_H)
+    }
+
+    private fun startStream() {
+        if (rtmpCamera2?.isStreaming == false) {
+            
+            // CONFIGURAÇÃO QUE FUNCIONAVA:
+            // Bitrate: 1500kbps (Seguro)
+            // Profile: Automático (Tiramos o High Profile forçado)
+            // Rotação: 0 (Pois o app já está em Landscape no Manifest)
+            
+            val bitrate = 1500 * 1024
+            
+            if (rtmpCamera2!!.prepareVideo(1280, 720, 30, bitrate, 2, 0)) {
+                // Áudio ESTÉREO (true) - Importante, pois o Mono falhou na última
+                rtmpCamera2!!.prepareAudio(64 * 1024, 44100, true, false, false)
+                
+                rtmpCamera2!!.startStream(RTMP_URL)
+                btnStart.text = "CONECTANDO..."
+            } else {
+                log("Erro: 720p falhou.")
+            }
         }
+    }
+
+    private fun startPreview() {
+        log("Iniciando Câmera 4:3...")
+        // Abre a câmera em 1440x1080 (Isso garante imagem no S22)
+        rtmpCamera2?.startPreview(CAM_W, CAM_H)
+        
+        // Configura o filtro imediatamente
+        val startX = (CAM_W - CROP_W) / 2
+        val startY = (CAM_H - CROP_H) / 2
+        cropFilter.setCropArea(startX, startY, CROP_W, CROP_H)
+        rtmpCamera2?.glInterface?.setFilter(cropFilter)
+    }
+
+    private fun stopStream() {
+        rtmpCamera2?.stopStream()
+        btnStart.text = "INICIAR LIVE"
+        log("Parado.")
+    }
+
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        if (hasPermissions()) startPreview()
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
-        // Se a câmera já estiver ligada, reinicia o preview para ajustar o tamanho
         if (rtmpCamera2?.isOnPreview == true) {
             rtmpCamera2?.stopPreview()
-            startPreviewSafe()
+            startPreview()
         }
     }
-
+    
     override fun surfaceDestroyed(holder: SurfaceHolder) {
-        // Se a tela for destruída (minimizou), desliga tudo para não dar erro
         if (rtmpCamera2?.isStreaming == true) rtmpCamera2?.stopStream()
         if (rtmpCamera2?.isOnPreview == true) rtmpCamera2?.stopPreview()
     }
 
-    // --- FUNÇÕES SEGURAS ---
-
-    private fun startPreviewSafe() {
-        try {
-            if (rtmpCamera2?.isOnPreview == false) {
-                log("Ligando Câmera...")
-                rtmpCamera2?.startPreview()
-            }
-        } catch (e: Exception) {
-            log("ERRO ao ligar Câmera: ${e.message}")
-        }
-    }
-
     private fun checkPermissions() {
-        val perms = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
         if (!hasPermissions()) {
-            ActivityCompat.requestPermissions(this, perms, 1)
+            ActivityCompat.requestPermissions(this, 
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
         }
     }
     
@@ -105,77 +143,17 @@ class MainActivity : AppCompatActivity(), ConnectChecker, SurfaceHolder.Callback
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            // Permissão concedida agora. Tenta ligar se a tela já existir.
-            if (openGlView.holder.surface.isValid) {
-                startPreviewSafe()
-            }
+            startPreview()
         }
     }
 
-    private fun startStream() {
-        if (rtmpCamera2?.isStreaming == false) {
-            if (rtmpCamera2!!.prepareVideo(1280, 720, 30, 2500 * 1024, 0)) {
-                rtmpCamera2!!.prepareAudio(128 * 1024, 44100, true, false, false)
-                rtmpCamera2!!.startStream(RTMP_URL)
-                btnStart.text = "CONECTANDO..."
-            } else {
-                log("720p falhou. Tentando 480p...")
-                if (rtmpCamera2!!.prepareVideo(640, 480, 30, 1200 * 1024, 0)) {
-                     rtmpCamera2!!.prepareAudio(128 * 1024, 44100, true, false, false)
-                     rtmpCamera2!!.startStream(RTMP_URL)
-                } else {
-                    log("Erro: Câmera não suportada.")
-                }
-            }
-        }
-    }
-
-    private fun stopStream() {
-        if (rtmpCamera2?.isStreaming == true) {
-            rtmpCamera2!!.stopStream()
-            btnStart.text = "INICIAR LIVE"
-            log("Parado.")
-        }
-    }
-
-    // --- CALLBACKS ---
-
-    override fun onConnectionStarted(url: String) {
-        runOnUiThread { log("Conectando: $url") }
-    }
-
-    override fun onConnectionSuccess() {
-        runOnUiThread {
-            log("✅ AO VIVO! (YouTube)")
-            btnStart.text = "PARAR LIVE"
-            Toast.makeText(this, "Conectado!", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    override fun onConnectionFailed(reason: String) {
-        runOnUiThread {
-            log("❌ ERRO: $reason")
-            if (rtmpCamera2?.isStreaming == true) rtmpCamera2?.stopStream()
-            btnStart.text = "TENTAR NOVAMENTE"
-            
-            // Dica de Debug
-            if (reason.contains("Endpoint")) log("DICA: Verifique a URL ou Internet.")
-        }
-    }
-
+    override fun onConnectionStarted(url: String) { runOnUiThread { log("Conectando...") } }
+    override fun onConnectionSuccess() { runOnUiThread { log("✅ AO VIVO! (Modo Seguro)"); btnStart.text = "PARAR" } }
+    override fun onConnectionFailed(reason: String) { runOnUiThread { log("❌ Falha: $reason"); btnStart.text = "TENTAR" } }
+    override fun onDisconnect() { runOnUiThread { log("Desconectado."); btnStart.text = "INICIAR" } }
+    override fun onAuthError() {}
+    override fun onAuthSuccess() {}
     override fun onNewBitrate(bitrate: Long) {}
 
-    override fun onDisconnect() {
-        runOnUiThread {
-            log("Desconectado.")
-            btnStart.text = "INICIAR LIVE"
-        }
-    }
-
-    override fun onAuthError() { runOnUiThread { log("Erro Auth.") } }
-    override fun onAuthSuccess() { runOnUiThread { log("Auth OK.") } }
-
-    private fun log(msg: String) {
-        tvLog.append("$msg\n")
-    }
+    private fun log(msg: String) { tvLog.append("$msg\n") }
 }
