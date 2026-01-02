@@ -45,5 +45,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     // Biblioteca do FFmpeg (Fork ativo)
-    implementation 'com.mrljdx:ffmpeg-kit-full:6.1.4'
+    
+    implementation 'com.github.pedroSG94.RootEncoder:library:2.5.2'
 }

@@ -11,6 +11,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // Pode remover o maven da appodeal, não precisamos mais dele
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = "HLSStreamer"
