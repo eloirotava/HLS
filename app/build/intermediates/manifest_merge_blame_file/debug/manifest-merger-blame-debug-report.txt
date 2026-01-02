@@ -1,6 +1,6 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-3    package="com.seunome.hlsstreamer"
+3    package="com.eloirotava.hlsstreamer"
 4    android:versionCode="1"
 5    android:versionName="1.0" >
 6
@@ -26,12 +26,12 @@
 16
 17    <permission
 17-->[androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
-18        android:name="com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+18        android:name="com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 18-->[androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
 19        android:protectionLevel="signature" />
 19-->[androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
 20
-21    <uses-permission android:name="com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+21    <uses-permission android:name="com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 21-->[androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
 21-->[androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
 22
@@ -49,7 +49,7 @@
 29-->/workspaces/HLS/app/src/main/AndroidManifest.xml:14:9-59
 30        <activity
 30-->/workspaces/HLS/app/src/main/AndroidManifest.xml:15:9-23:20
-31            android:name="com.seunome.hlsstreamer.MainActivity"
+31            android:name="com.eloirotava.hlsstreamer.MainActivity"
 31-->/workspaces/HLS/app/src/main/AndroidManifest.xml:16:13-41
 32            android:exported="true"
 32-->/workspaces/HLS/app/src/main/AndroidManifest.xml:17:13-36
@@ -71,7 +71,7 @@
 41-->[androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-3/9be94c330fcd0d11ad53cd39958f4b37/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
 42            android:name="androidx.startup.InitializationProvider"
 42-->[androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-3/9be94c330fcd0d11ad53cd39958f4b37/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:25:13-67
-43            android:authorities="com.seunome.hlsstreamer.androidx-startup"
+43            android:authorities="com.eloirotava.hlsstreamer.androidx-startup"
 43-->[androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-3/9be94c330fcd0d11ad53cd39958f4b37/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:26:13-68
 44            android:exported="false" >
 44-->[androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-3/9be94c330fcd0d11ad53cd39958f4b37/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:27:13-37

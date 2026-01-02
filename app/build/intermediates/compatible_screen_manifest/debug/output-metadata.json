@@ -4,7 +4,7 @@
     "type": "COMPATIBLE_SCREEN_MANIFEST",
     "kind": "Directory"
   },
-  "applicationId": "com.seunome.hlsstreamer",
+  "applicationId": "com.eloirotava.hlsstreamer",
   "variantName": "debug",
   "elements": []
 }

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.seunome.hlsstreamer.app-mergeDebugResources-30:/values-v23/values-v23.xml",
+            "outputFile": "com.eloirotava.hlsstreamer.app-mergeDebugResources-30:/values-v23/values-v23.xml",
             "map": [
                 {
                     "source": "/root/.gradle/caches/transforms-3/97b54066efa82b41822102a71dc7c7d7/transformed/cardview-1.0.0/res/values-v23/values-v23.xml",

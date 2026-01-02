@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.seunome.hlsstreamer"
+    package="com.eloirotava.hlsstreamer"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -15,10 +15,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
     <permission
-        android:name="com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
         android:allowBackup="true"
@@ -28,7 +28,7 @@
         android:label="HLS Streamer"
         android:theme="@style/Theme.AppCompat.NoActionBar" >
         <activity
-            android:name="com.seunome.hlsstreamer.MainActivity"
+            android:name="com.eloirotava.hlsstreamer.MainActivity"
             android:exported="true"
             android:screenOrientation="portrait" >
             <intent-filter>
@@ -40,7 +40,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.seunome.hlsstreamer.androidx-startup"
+            android:authorities="com.eloirotava.hlsstreamer.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

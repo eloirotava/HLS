@@ -105,7 +105,7 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /root/.gradle/caches/transf
 		ADDED from /workspaces/HLS/app/src/main/AndroidManifest.xml:12:9-35
 	android:theme
 		ADDED from /workspaces/HLS/app/src/main/AndroidManifest.xml:14:9-59
-activity#com.seunome.hlsstreamer.MainActivity
+activity#com.eloirotava.hlsstreamer.MainActivity
 ADDED from /workspaces/HLS/app/src/main/AndroidManifest.xml:15:9-23:20
 	android:screenOrientation
 		ADDED from /workspaces/HLS/app/src/main/AndroidManifest.xml:18:13-49
@@ -243,7 +243,7 @@ ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
 	android:name
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
-permission#com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+permission#com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
 	android:protectionLevel
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
@@ -253,7 +253,7 @@ uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
-uses-permission#com.seunome.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission#com.eloirotava.hlsstreamer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:22-94

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.seunome.hlsstreamer.app-mergeDebugResources-30:/values-zh-rHK/values-zh-rHK.xml",
+            "outputFile": "com.eloirotava.hlsstreamer.app-mergeDebugResources-30:/values-zh-rHK/values-zh-rHK.xml",
             "map": [
                 {
                     "source": "/root/.gradle/caches/transforms-3/3fdcd8fc8fdde99adb1eb4c1f0cd10bd/transformed/appcompat-1.6.1/res/values-zh-rHK/values-zh-rHK.xml",

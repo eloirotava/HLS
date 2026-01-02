@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.seunome.hlsstreamer'
+    namespace 'com.eloirotava.hlsstreamer'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.seunome.hlsstreamer"
+        applicationId "com.eloirotava.hlsstreamer"
         minSdk 24
         targetSdk 34
         versionCode 1
