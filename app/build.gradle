@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.seunome.hlsstreamer"
-        minSdk 24 // Android 7.0 no mínimo para suporte decente a MediaCodec
+        minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -22,7 +22,6 @@ android {
         }
     }
     
-    // Necessário para o FFmpegKit não dar conflito de bibliotecas nativas
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
@@ -35,7 +34,5 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
-    
-    // A Mágica: FFmpegKit Full GPL (Suporte a HTTPS e x265 se o hardware falhar)
     implementation 'com.arthenica:ffmpeg-kit-full-gpl:6.0-2'
 }
