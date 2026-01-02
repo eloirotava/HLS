@@ -1,24 +1,16 @@
 {
-  "name": "Android HLS Builder",
-  "image": "mcr.microsoft.com/devcontainers/java:17-bookworm",
-  "features": {
-    "ghcr.io/devcontainers/features/android:1": {
-      "components": "platform-tools,platforms;android-34,build-tools;34.0.0",
-      "acceptLicense": true
-    },
-    "ghcr.io/devcontainers/features/gradle:1": {}
-  },
+  "name": "Android HLS Env",
+  // Usamos uma imagem da comunidade que já tem Java + Android SDK pronto
+  "image": "mobiledevops/android-sdk-image:34.0.0-jdk17",
   "customizations": {
     "vscode": {
       "extensions": [
         "vscjava.vscode-java-pack",
-        "mathiasfrohlich.Kotlin"
-      ],
-      "settings": {
-        "java.home": "/usr/local/sdkman/candidates/java/current"
-      }
+        "mathiasfrohlich.Kotlin",
+        "androiddev.android-manifest-snippets"
+      ]
     }
   },
-  "remoteUser": "vscode",
-  "postCreateCommand": "sudo chown -R vscode:vscode /opt/android-sdk && echo 'Ambiente Android Pronto!'"
+  "remoteUser": "root",
+  "postCreateCommand": "apt-get update && apt-get install -y gradle && echo 'Ambiente Recuperado!'"
 }
