@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // ADICIONE ESTA LINHA:
+        maven { url "https://artifactory.appodeal.com/appodeal-public" } 
     }
 }
 rootProject.name = "HLSStreamer"
